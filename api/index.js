@@ -12,7 +12,24 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+// app.use(cors());
+const allowedOrigins = [
+  'http://localhost:3000', // Local frontend
+  'https://ai-visa-prep.vercel.app' // Online frontend
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Allow cookies and credentials
+};
+
+app.use(cors(corsOptions));
 
 // Connect to MongoDB
 mongoose
