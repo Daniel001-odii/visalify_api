@@ -13,23 +13,42 @@ const userSchema = new mongoose.Schema(
       enum: ["free", "premium"],
       default: "free"
     },
-
+/* 
     email_verified: {
       type: Boolean,
       default: false,
+    }, */
+    provider: {
+      type: String,
+      enum: ["google", "visalify"],
+      default: "visalify"
     },
 
     interview_date: Date,
-    language: String,
+    language: {
+      type: String,
+      default: "english"
+    },
     subscription_start_date: Date,
     subscription_end_date: Date,
 
     last_login: Date,
-    nationality: String,
-    target_country: String,
+    nationality: {
+      type: String,
+      default: "nigeria"
+    },
+    target_country: {
+      type: String
+    },
     visa_type: String,
-    travelled_before: String,
-    visa_refused_before: String,
+    travelled_before: {
+      type: String,
+      enum: ["yes", "no"]
+    },
+    visa_refused_before: {
+      type: String,
+      enum: ["yes", "no"]
+    },
     occupation: String,
 
 
