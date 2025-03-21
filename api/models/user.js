@@ -4,7 +4,7 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String},
     profile_img: {
       type: String,
     },
@@ -43,13 +43,42 @@ const userSchema = new mongoose.Schema(
     visa_type: String,
     travelled_before: {
       type: String,
-      enum: ["yes", "no"]
+      enum: ["yes", "no"],
+      default: "no"
     },
     visa_refused_before: {
       type: String,
-      enum: ["yes", "no"]
+      enum: ["yes", "no"],
+      default: "no"
     },
     occupation: String,
+
+    settings: {
+      expert_suggestions: {
+        type: Boolean,
+        default: true,
+      },
+      daily_tips_mail: {
+        type: Boolean,
+        default: true
+      },
+      vo_gender: {
+        type: String,
+        enum: ["male", "female"],
+        default: "female"
+      },
+      vo_voice: {
+        type: String
+      },
+      test_level: {
+        type: String,
+        enum: ["easy", "medium", "hard"]
+      },
+      voice_over: {
+        type: Boolean,
+        default: true,
+      }
+    }
 
 
 

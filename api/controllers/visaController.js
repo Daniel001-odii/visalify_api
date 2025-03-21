@@ -51,7 +51,7 @@ exports.conductVisaInterview = async (req, res) => {
     }
 
     const maxQuestions = 5;
-    if(questionCount === 4){
+    if(questionCount === 3){
       return res.status(403).json({ message: "Trial Ended Please Sign-in to continue"})
     }
 
@@ -184,15 +184,22 @@ exports.conductVisaInterview = async (req, res) => {
 exports.conductVisaInterviewForAuthUsers = async (req, res) => {
   try {
     const {
-      candidateData,
       currentAnswer,
       questionCount = 0,
       previousQuestions = [],
       previousAnswers = [],
     } = req.body;
-    console.log("from clientL ", req.body);
-    if (!candidateData) {
-      return res.status(400).json({ message: "Candidate data is required" });
+    console.log("from client ", req.body);
+
+    const { name, nationality, travelled_before, visa_refused_before, target_country, visa_type, interview_date, settings } = req.user_info;
+    const candidateData = {
+      name,
+      nationality,
+      travelled_before,
+      visa_refused_before,
+      target_country,
+      visa_type,
+      interview_date
     }
 
     const geminiApiKey = process.env.GOOGLE_API_KEY;
@@ -295,7 +302,7 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
       try {
         const tts = new MsEdgeTTS();
         await tts.setMetadata(
-          "en-US-MichelleNeural",
+          settings.vo_voice,
           OUTPUT_FORMAT.WEBM_24KHZ_16BIT_MONO_OPUS
         );
 
