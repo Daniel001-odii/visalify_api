@@ -3,184 +3,17 @@ const { MsEdgeTTS, OUTPUT_FORMAT } = require("msedge-tts");
 const fs = require("fs");
 const path = require("path");
 
-// import User from "../models/user";
-const User = require('../models/user')
+const User = require('../models/user');
 
-// Build interview prompt
-let prompt = `You are a visa officer conducting an interview. Your tone is formal and professional. 
+// Build interview prompt with improved conversational tone
+let prompt = `You are a visa officer conducting an interview. Your tone is formal, polite, and professional, mimicking a real human officer. Use natural phrasing like "Can you tell me...", "I’d like to know...", or "Please explain..." to sound conversational. 
     Based on the candidate's data and previous answers below, ask a single, concise question from common visa interview topics 
     (e.g., purpose of travel, funding, ties to home country, past travel history) to assess their eligibility. 
     Do not repeat questions already asked. You must ask exactly 5 questions before making a decision. 
     After the 5th question, evaluate all data and answers, then provide a final response in this exact format: 
-    "[APPROVED or DENIED]: [Brief reason]." 
-    Here is the candidate's data:\n\n`;
+    "[APPROVED or DENIED]: [Full sentence reason in a polite, human-like tone, e.g., 'Congratulations, your visa has been approved as you’ve demonstrated strong ties to your home country.' or 'I’m sorry, but your visa has been denied due to insufficient funding for this trip.']". 
+    Here is the candidate’s data:\n\n`;
 
-// Conduct Visa Interview
-exports.conductVisaInterview = async (req, res) => {
-  try {
-    const {
-      candidateData,
-      currentAnswer,
-      questionCount = 0,
-      previousQuestions = [],
-      previousAnswers = [],
-    } = req.body;
-    console.log("from clientL ", req.body);
-    if (!candidateData) {
-      return res.status(400).json({ message: "Candidate data is required" });
-    }
-
-    const geminiApiKey = process.env.GOOGLE_API_KEY;
-    if (!geminiApiKey) {
-      return res.status(500).json({ message: "Google API Key is missing" });
-    }
-
-    prompt += JSON.stringify(candidateData, null, 2) + "\n\n";
-
-    if (previousQuestions.length > 0) {
-      prompt += `Previous questions and answers:\n`;
-      previousQuestions.forEach((q, i) => {
-        prompt += `- Question ${i + 1}: "${q}"\n  Answer: "${
-          previousAnswers[i]
-        }"\n`;
-      });
-    }
-
-    if (currentAnswer) {
-      prompt += `The candidate just answered: "${currentAnswer}" to the last question.\n`;
-    }
-
-    const maxQuestions = 5;
-    if(questionCount === 3){
-      return res.status(403).json({ message: "Trial Ended Please Sign-in to continue"})
-    }
-
-    if (questionCount < maxQuestions) {
-      prompt += `Ask question ${
-        questionCount + 1
-      } of 5, and provide a recommended reply that would be a correct and appropriate answer to that question. Return the question and the recommended reply separated by ' || '. For example: 'What is your purpose of travel? || I am traveling for a business conference.'`;
-    } else {
-      prompt += `You have asked 5 questions. Now evaluate all data and answers, and return only the final decision in this format: "[APPROVED or DENIED]: [Brief reason]"`;
-    }
-
-    console.log("Prompt:", prompt);
-
-    // Fetch response from Gemini API
-    const geminiResponse = await ofetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": geminiApiKey,
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            maxOutputTokens: 100,
-            temperature: 0.5,
-            topP: 0.9,
-          },
-        }),
-      }
-    );
-
-    const responseText =
-      geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
-      "Please provide your full name.";
-    console.log("Gemini Response:", responseText);
-
-    // Parse response
-    let question = "";
-    let decision = null;
-    let recommendedReply = "";
-    const isFinal = questionCount >= maxQuestions;
-
-    if (isFinal) {
-      const match = responseText.match(
-        /^(?:\[)?(APPROVED|DENIED)(?:\])?: (.+)$/i
-      );
-      if (match) {
-        decision = { status: match[1], reason: match[2] };
-      } else {
-        decision = {
-          status: "DENIED",
-          reason:
-            "Unable to process final decision due to unexpected response format.",
-        };
-      }
-    } else {
-      const parts = responseText.split(" || ");
-      if (parts.length === 2) {
-        question = parts[0].trim();
-        recommendedReply = parts[1].trim();
-      } else {
-        question = responseText;
-        recommendedReply = "Unable to generate recommended reply.";
-      }
-    }
-
-    // Update state
-    const updatedQuestionCount = questionCount + 1;
-    const updatedPreviousQuestions = isFinal
-      ? previousQuestions
-      : [...previousQuestions, question];
-    const updatedPreviousAnswers = currentAnswer
-      ? [...previousAnswers, currentAnswer]
-      : previousAnswers;
-
-    // Generate Audio
-    const createAudio = async (text) => {
-      try {
-        const tts = new MsEdgeTTS();
-        await tts.setMetadata(
-          "en-US-MichelleNeural",
-          OUTPUT_FORMAT.WEBM_24KHZ_16BIT_MONO_OPUS
-        );
-
-        // Get stream
-        const { audioStream } = await tts.toStream(text);
-
-        // Read stream into buffer
-        const chunks = [];
-        for await (const chunk of audioStream) {
-          chunks.push(chunk);
-        }
-        const audioBuffer = Buffer.concat(chunks);
-
-        // Convert to Base64
-        const audioBase64 = `data:audio/webm;base64,${audioBuffer.toString(
-          "base64"
-        )}`;
-
-        return audioBase64;
-      } catch (error) {
-        console.error("Error generating audio:", error);
-        return null;
-      }
-    };
-
-    const audioPath = isFinal ? null : await createAudio(question);
-
-    res.json({
-      question: isFinal ? "" : question,
-      decision: isFinal ? decision : null,
-      recommendedReply: isFinal ? "" : recommendedReply,
-      audioPath,
-      questionCount: updatedQuestionCount,
-      previousQuestions: updatedPreviousQuestions,
-      previousAnswers: updatedPreviousAnswers,
-      isFinal,
-    });
-  } catch (error) {
-    console.error("Visa Interview Error:", error);
-    res
-      .status(500)
-      .json({ message: "Internal Server Error", error: error.message });
-  }
-};
-
-// for auth users...
 exports.conductVisaInterviewForAuthUsers = async (req, res) => {
   try {
     const {
@@ -200,7 +33,7 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
       target_country,
       visa_type,
       interview_date
-    }
+    };
 
     const geminiApiKey = process.env.GOOGLE_API_KEY;
     if (!geminiApiKey) {
@@ -212,9 +45,7 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
     if (previousQuestions.length > 0) {
       prompt += `Previous questions and answers:\n`;
       previousQuestions.forEach((q, i) => {
-        prompt += `- Question ${i + 1}: "${q}"\n  Answer: "${
-          previousAnswers[i]
-        }"\n`;
+        prompt += `- Question ${i + 1}: "${q}"\n  Answer: "${previousAnswers[i]}"\n`;
       });
     }
 
@@ -224,11 +55,9 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
 
     const maxQuestions = 5;
     if (questionCount < maxQuestions) {
-      prompt += `Ask question ${
-        questionCount + 1
-      } of 5, and provide a recommended reply that would be a correct and appropriate answer to that question. Return the question and the recommended reply separated by ' || '. For example: 'What is your purpose of travel? || I am traveling for a business conference.'`;
+      prompt += `Ask question ${questionCount + 1} of 5 in a polite, conversational tone. Provide a recommended reply that would be a correct and appropriate answer to that question. Return the question and the recommended reply separated by ' || '. For example: 'Can you tell me the purpose of your trip? || I’m traveling to attend a family wedding.'`;
     } else {
-      prompt += `You have asked 5 questions. Now evaluate all data and answers, and return only the final decision in this format: "[APPROVED or DENIED]: [Brief reason]"`;
+      prompt += `You have asked 5 questions. Now evaluate all data and answers, and return only the final decision in this format: "[APPROVED or DENIED]: [Full sentence reason in a polite, human-like tone]"`;
     }
 
     console.log("Prompt:", prompt);
@@ -245,8 +74,8 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            maxOutputTokens: 100,
-            temperature: 0.5,
+            maxOutputTokens: 150, // Increased slightly to accommodate full sentences
+            temperature: 0.7, // Slightly higher for more natural variation
             topP: 0.9,
           },
         }),
@@ -274,7 +103,7 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
         decision = {
           status: "DENIED",
           reason:
-            "Unable to process final decision due to unexpected response format.",
+            "I’m sorry, but your visa has been denied due to an unexpected processing error.",
         };
       }
     } else {
@@ -284,7 +113,7 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
         recommendedReply = parts[1].trim();
       } else {
         question = responseText;
-        recommendedReply = "Unable to generate recommended reply.";
+        recommendedReply = "Please provide a clear and detailed response.";
       }
     }
 
@@ -306,21 +135,16 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
           OUTPUT_FORMAT.WEBM_24KHZ_16BIT_MONO_OPUS
         );
 
-        // Get stream
         const { audioStream } = await tts.toStream(text);
-
-        // Read stream into buffer
         const chunks = [];
         for await (const chunk of audioStream) {
           chunks.push(chunk);
         }
         const audioBuffer = Buffer.concat(chunks);
 
-        // Convert to Base64
         const audioBase64 = `data:audio/webm;base64,${audioBuffer.toString(
           "base64"
         )}`;
-
         return audioBase64;
       } catch (error) {
         console.error("Error generating audio:", error);
@@ -328,7 +152,9 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
       }
     };
 
-    const audioPath = isFinal ? null : await createAudio(question);
+    // Generate audio for question or decision
+    const audioText = isFinal ? decision.reason : question;
+    const audioPath = await createAudio(audioText);
 
     res.json({
       question: isFinal ? "" : question,

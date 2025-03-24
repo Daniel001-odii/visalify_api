@@ -93,9 +93,11 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email });
 
     // Check if user exists and password is correct
-    if (!user || !(await user.matchPassword(password))) {
-      return res.status(401).json({ message: "Invalid credentials provided" });
-    }
+    // if(user && user.provider != 'google'){
+      if (!user || !(await user.matchPassword(password)) || user.provider != 'google') {
+        return res.status(401).json({ message: "Invalid credentials provided" });
+      }
+    // }
 
     user.last_login = Date.now();
     user.save()
