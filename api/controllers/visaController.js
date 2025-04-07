@@ -4,6 +4,8 @@ const fs = require("fs");
 const path = require("path");
 
 const User = require("../models/user");
+const { default: Interview } = require("../models/interview");
+const { default: Message } = require("../models/message");
 
 // Build interview prompt with improved conversational tone
 let prompt = `You are a visa officer conducting an interview. Your tone is formal, polite, and professional, mimicking a real human officer. Use natural phrasing like "Can you tell me...", "I’d like to know...", or "Please explain..." to sound conversational. 
@@ -169,6 +171,90 @@ exports.conductVisaInterview = async (req, res) => {
   }
 };
 
+// create new interview and return interview id..
+exports.createNewInterview = async (req, res) => {
+  try{
+    const user_id = req?.user_info?._id;
+
+    const country = req.user_info?.target_country;
+    const visa_type = req.user_info?.visa_type;
+    const newInterview = await Interview.create({
+      country,
+      user: user_id,
+      visa_type,
+      vo_voice: req?.user_info?.settings?.vo_voice,
+    });
+    const interviewId = newInterview._id;
+
+    res.status(201).json({ success: true, interviewId });
+
+    
+  }catch(err){
+    res.status(500).json({ success: false, message: "Internal Server Error", error: err.message }); 
+  }
+}
+
+
+const newMessage = async (
+  interview, 
+  text, 
+  sender
+) => {
+
+  if(!text
+    || !interview
+    || !sender
+  ){
+    throw new Error("Missing required parameters");
+  }
+  
+  const new_message = await Message.create({
+    interview,
+    text,
+    sender,
+  });
+
+  return new_message;
+
+}
+
+exports.userMessage = async(req, res) => {
+  try{
+    const user = req.user_info;
+    const { text, interviewId } = req.body;
+    newMessage(interviewId, text, "user");
+    res.status(201).json({ success: true, message: "Message sent successfully" });
+  }catch(err){
+    res.status(500).json({ success: false, message: "Internal Server Error", error: err.message });
+  }
+}
+
+exports.getInterviewById = async (req, res) => {
+  try {
+    const interviewId = req.params.interview_id;
+
+    if (!interviewId) {
+      return res.status(400).json({ success: false, message: "Interview ID is required" });
+    }
+
+    const interviewData = await Interview.findById(interviewId).populate("user");
+
+    if (!interviewData) {
+      return res.status(404).json({ success: false, message: "Interview not found" });
+    }
+
+    res.status(200).json({ success: true, interview: interviewData });
+  } catch (err) {
+    console.error("Error fetching interview by ID:", err);
+    res.status(500).json({ success: false, message: "Internal Server Error", error: err.message });
+  }
+};
+
+/* let previousQuestions = [];
+let previousAnswers = [];
+let questionCount = 0; */
+
+
 exports.conductVisaInterviewForAuthUsers = async (req, res) => {
   try {
     const {
@@ -177,7 +263,26 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
       previousQuestions = [],
       previousAnswers = [],
     } = req.body;
-    console.log("from client ", req.body);
+  /*   let {
+      currentAnswer,
+    } = req.body; */
+    const interviewId = req.params.interview_id;
+
+    const interview = await Interview.findById(interviewId);
+    if (!interview) {
+      return res.status(404).json({ success: false, message: "Interview not found" });
+    }
+
+    if(questionCount > 0 && !currentAnswer){
+      return res.status(400).json({ success: false, message: "Please provide an answer" });
+    } 
+   /*  if(questionCount === 0){
+      currentAnswer = null;
+    } */
+
+    // create new  user message..
+   (questionCount > 0) ? (newMessage(interviewId, currentAnswer, "user") ) : null
+    console.log("new user message: ", newMessage);
 
     const {
       name,
@@ -324,6 +429,33 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
     const audioText = isFinal ? decision.reason : question;
     const audioPath = await createAudio(audioText);
 
+    // create new message for the bot..
+    newMessage(interviewId, (isFinal ? decision.reason : question), "vo_bot");
+    console.log("new bot message: ", newMessage);
+
+  /*   previousAnswers = updatedPreviousAnswers;
+    previousQuestions = updatedPreviousQuestions;
+    questionCount = updatedQuestionCount;
+    console.log("question count: ", questionCount);
+    console.log("prev question: ", previousQuestions);
+    console.log("prev answers: ", previousAnswers); */
+
+   
+
+    if(isFinal){
+      // Update interview status to approved or denied based on decision
+      interview.status = decision.status.toLowerCase();
+      await interview.save();
+    }
+
+    
+   /*  res.json({
+      question: isFinal ? "" : question,
+      decision: isFinal ? decision : null,
+      recommendedReply: isFinal ? "" : recommendedReply,
+      audioPath,
+      isFinal,
+    }); */
     res.json({
       question: isFinal ? "" : question,
       decision: isFinal ? decision : null,
@@ -339,5 +471,53 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
     res
       .status(500)
       .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+exports.getAllMessagesInInterview = async (req, res) => {
+  try {
+    const interviewId = req.params.interview_id;
+
+    if (!interviewId) {
+      return res.status(400).json({ success: false, message: "Interview ID is required" });
+    }
+
+    const interview = await Interview.findById(interviewId);
+    if (!interview) {
+      return res.status(404).json({ success: false, message: "Interview not found" });
+    }
+
+    const messages = await Message.find({ interview: interviewId }).sort({ createdAt: 1 });
+
+    res.status(200).json({ success: true, messages, interview });
+  } catch (err) {
+    console.error("Error fetching messages for interview:", err);
+    res.status(500).json({ success: false, message: "Internal Server Error", error: err.message });
+  }
+};
+
+
+exports.deleteInterviewById = async (req, res) => {
+  try {
+    const interviewId = req.params.interview_id;
+
+    if (!interviewId) {
+      return res.status(400).json({ success: false, message: "Interview ID is required" });
+    }
+
+    // Delete associated messages
+    await Message.deleteMany({ interview: interviewId });
+
+    // Delete the interview
+    const deletedInterview = await Interview.findByIdAndDelete(interviewId);
+
+    if (!deletedInterview) {
+      return res.status(404).json({ success: false, message: "Interview not found" });
+    }
+
+    res.status(200).json({ success: true, message: "Interview deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting interview by ID:", err);
+    res.status(500).json({ success: false, message: "Internal Server Error", error: err.message });
   }
 };

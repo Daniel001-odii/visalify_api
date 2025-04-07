@@ -1,6 +1,7 @@
 import User from "../models/user.js";
 // const MSEdgeTTS = require('msedge-tts');
 import { MsEdgeTTS } from "msedge-tts";
+import Interview from "../models/interview.js";
 
 // Initialize the TTS service
 const tts = new MsEdgeTTS();
@@ -44,6 +45,16 @@ export const updateProfile = async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(req.user.userId, req.body, { new: true });
     res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+
+export const getUserInterviews = async (req, res) => {
+  try {
+    const interviews = await Interview.find({ user: req.user_info._id });
+    res.status(200).json({ interviews });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
