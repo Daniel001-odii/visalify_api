@@ -2,6 +2,7 @@ import User from "../models/user.js";
 // const MSEdgeTTS = require('msedge-tts');
 import { MsEdgeTTS } from "msedge-tts";
 import Interview from "../models/interview.js";
+import message from "../models/message.js";
 
 // Initialize the TTS service
 const tts = new MsEdgeTTS();
@@ -53,9 +54,41 @@ export const updateProfile = async (req, res) => {
 
 export const getUserInterviews = async (req, res) => {
   try {
-    const interviews = await Interview.find({ user: req.user_info._id });
+    const interviews = await Interview.find({ user: req.user_info._id }).sort({ createdAt: 1 });
     res.status(200).json({ interviews });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
+  }
+};
+
+
+export const getDashboardData = async (req, res) => {
+  try {
+    const user_id = req.user_info._id;
+
+    const interviews = await Interview.find({ user: user_id });
+
+    const practice_time = interviews.reduce((acc, cur) => acc + cur.duration, 0);
+    const completed_interviews = interviews.length;
+
+    const confidence_score = completed_interviews > 0
+      ? Math.round(
+        interviews.reduce((acc, cur) => {
+            const score = Math.min(1, 90 / (cur.duration || 1)); // prevent division by 0
+            return acc + score;
+          }, 0) / completed_interviews * 100
+        )
+      : 0;
+
+    res.status(200).json({
+      status: 'success',
+      practice_time,
+      confidence_score, // Percentage
+      completed_interviews
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };

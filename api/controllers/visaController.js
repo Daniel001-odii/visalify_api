@@ -262,6 +262,7 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
       questionCount = 0,
       previousQuestions = [],
       previousAnswers = [],
+      current_time
     } = req.body;
   /*   let {
       currentAnswer,
@@ -272,6 +273,10 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
     if (!interview) {
       return res.status(404).json({ success: false, message: "Interview not found" });
     }
+
+    // update interview duration..
+    interview.duration = current_time;
+    await interview.save();
 
     if(questionCount > 0 && !currentAnswer){
       return res.status(400).json({ success: false, message: "Please provide an answer" });
@@ -442,6 +447,7 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
 
    
 
+    
     if(isFinal){
       // Update interview status to approved or denied based on decision
       interview.status = decision.status.toLowerCase();
