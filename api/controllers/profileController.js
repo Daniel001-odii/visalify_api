@@ -92,3 +92,88 @@ export const getDashboardData = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
+import { ofetch } from "ofetch";
+
+export const generateVisaTips = async (req, res) => {
+  const geminiApiKey = process.env.GOOGLE_API_KEY;
+
+  if (!geminiApiKey) {
+    return res.status(500).json({ message: "Google API Key is missing" });
+  }
+
+  const userData = req.user_info;
+
+  if (!userData || Object.keys(userData).length === 0) {
+    return res.status(400).json({ message: "Visa interview data is required." });
+  }
+
+  const prompt = `
+You are an expert visa interview coach.
+
+Using the following data about a visa applicant, provide exactly 2 specific, personalized, and encouraging tips that will help them perform well in their interview.
+
+Here is the user's information:
+${JSON.stringify(userData, null, 2)}
+
+Make the tips short, direct, and confidence-boosting.
+
+Return only the tips in this format:
+
+1. [Tip one]
+2. [Tip two]
+`;
+
+  try {
+    const geminiResponse = await ofetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": geminiApiKey,
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            maxOutputTokens: 150,
+            temperature: 0.7,
+            topP: 0.9,
+          },
+        }),
+      }
+    );
+
+    const responseText =
+      geminiResponse?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+
+    console.log("Raw Gemini Visa Tips Response:", responseText);
+
+    // Extract tips from formatted string
+    const tipsMatch = responseText.match(/1\.\s*(.+)\s*2\.\s*(.+)/s);
+
+    const tips = tipsMatch
+      ? [
+          tipsMatch[1].trim(),
+          tipsMatch[2].trim(),
+      ]
+      : [
+          "Be calm and confident during your interview.",
+          "Clearly explain the purpose of your visit with supporting documents.",
+      ];
+
+    res.status(200).json({
+      success: true,
+      tips,
+    });
+  } catch (error) {
+    console.error("Error generating visa tips:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate visa interview tips.",
+      error: error.message,
+    });
+  }
+};
+

@@ -4,7 +4,8 @@ const {
     updateProfile,
     getAllVoices,
     getUserInterviews,
-    getDashboardData
+    getDashboardData,
+    generateVisaTips
 } = require("../controllers/profileController.js");
 const { authenticate } = require("../middlewares/authMiddleware.js");
 const router = express.Router();
@@ -17,6 +18,8 @@ router.get("/ai/voices", getAllVoices);
 router.get("/interviews", authenticate, getUserInterviews);
 
 router.get("/dashboard_data", authenticate, getDashboardData);
+
+router.get("/visa_tips", authenticate, generateVisaTips);
 // router.get("/interviews/:interview_id", authenticate, getUserInterviews);
 // router.get("/interviews/:interview_id/messages", authenticate, getUserInterviews);
 
