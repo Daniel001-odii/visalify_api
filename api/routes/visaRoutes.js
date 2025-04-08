@@ -1,4 +1,4 @@
-const express = require('express');
+/* const express = require('express');
 const { 
     conductVisaInterview, 
     conductVisaInterviewForAuthUsers, 
@@ -7,9 +7,19 @@ const {
     getAllMessagesInInterview,
     deleteInterviewById, 
 } = require('../controllers/visaController');
-const router = express.Router();
-const { authenticate } = require("../middlewares/authMiddleware.js");
 
+const { authenticate } = require("../middlewares/authMiddleware.js");
+ */
+import express from "express"
+import { conductVisaInterview,
+    conductVisaInterviewForAuthUsers, 
+    createNewInterview,
+    getInterviewById,
+    getAllMessagesInInterview,
+    deleteInterviewById, 
+ } from "../controllers/visaController.js";
+ import { authenticate } from "../middlewares/authMiddleware.js";
+const router = express.Router();
 // Visa interview route
 router.post('/question', conductVisaInterview);
 router.post('/:interview_id/user_question', authenticate, conductVisaInterviewForAuthUsers);
@@ -22,4 +32,4 @@ router.get('/:interview_id/interview_messages', authenticate, getAllMessagesInIn
 
 router.delete('/:interview_id/delete', authenticate, deleteInterviewById)
 
-module.exports = router; // ✅ Ensure this exports the router correctly
+export default router;

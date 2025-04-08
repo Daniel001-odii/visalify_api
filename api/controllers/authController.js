@@ -1,7 +1,9 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
-import config from "../config/config.js";
+import config from '../config/config.js';
 import { OAuth2Client } from "google-auth-library";
 // const { OAuth2Client } = require('google-auth-library')
 
@@ -13,6 +15,21 @@ function getOauth2Client() {
   );
 
   return oAuth2Client;
+}
+
+function formatDateHumanReadable(isoDateString) {
+  const date = new Date(isoDateString);
+  const options = {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    timeZone: 'UTC',
+    timeZoneName: 'short'
+  };
+  return date.toLocaleString('en-US', options);
 }
 
 export const verifyGoogleCode = async (req, res) => {
@@ -51,13 +68,16 @@ export const verifyGoogleCode = async (req, res) => {
     user.profile_img = userinfo.picture;
     await user.save()
 
+    user.last_login_string =formatDateHumanReadable(Date.now());
+    user.save()
+
     // Generate JWT token for the user
     const token = jwt.sign({ userId: user._id }, config.jwtSecret, { expiresIn: "7d" });
 
     return res.status(200).json({
       message: "Google sign-in success",
       token,
-      user: { id: user._id, name: user.name, email: user.email },
+      user,
     });
   } catch (error) {
     console.error("Error in verifyGoogleCode:", error);
@@ -79,6 +99,8 @@ export const signup = async (req, res) => {
 
     // send welcome email here....
     // const result = await sendEmail({ to, subject, text, html });
+    newUser.last_login_string =formatDateHumanReadable(Date.now());
+    newUser.save()
 
     res.status(201).json({ token, message: "User registered successfully", userId: newUser._id });
   } catch (error) {
@@ -99,10 +121,10 @@ export const login = async (req, res) => {
       }
     // }
 
-    user.last_login = Date.now();
+    user.last_login_string =formatDateHumanReadable(Date.now());
     user.save()
 
-    const token = jwt.sign({ userId: user._id }, config.jwtSecret, { expiresIn: "7d" });
+    const token = jwt.sign({ user }, config.jwtSecret, { expiresIn: "7d" });
     res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
   } catch (error) {
     console.log("err in login: ", error)

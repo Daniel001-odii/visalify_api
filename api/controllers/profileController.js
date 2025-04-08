@@ -25,10 +25,28 @@ async function listVoices() {
 
 export const getAllVoices = async (req, res) => {
   try {
-    const voices = await listVoices();
+    const { gender } = req.query;
+    let voices = await listVoices();
+
+    if (gender) {
+      const normalizedGender = gender.toLowerCase();
+      if (normalizedGender !== 'male' && normalizedGender !== 'female') {
+        return res.status(400).json({ 
+          message: "Invalid gender parameter. Allowed values: 'male' or 'female'" 
+        });
+      }
+      
+      voices = voices.filter(voice => 
+        voice.gender.toLowerCase() === normalizedGender
+      );
+    }
+
     res.status(200).json({ voices });
   } catch (err) {
-    res.status(500).json({ message: "Internal server error", error: err.message });
+    res.status(500).json({ 
+      message: "Internal server error", 
+      error: err.message 
+    });
   }
 };
 
@@ -177,3 +195,60 @@ Return only the tips in this format:
   }
 };
 
+
+export const subscribePremium = async (req, res) => {
+  try {
+    const user = req.user_info;
+
+    // Step 1: Create Paystack customer
+    const customerRes = await paystack.post("/customer", {
+      email: user.email,
+      first_name: user.name.split(" ")[0],
+    });
+
+    const customerCode = customerRes.data.data.customer_code;
+
+    // Step 2: Initialize subscription (use your own Paystack plan code)
+    const planCode = process.env.PAYSTACK_PLAN_CODE; // From Paystack dashboard
+
+    const subRes = await paystack.post("/transaction/initialize", {
+      email: user.email,
+      amount: 5000 * 100, // ₦5000 in kobo
+      plan: planCode,
+      metadata: {
+        userId: user._id.toString(),
+      },
+    });
+
+    return res.json({ url: subRes.data.data.authorization_url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Subscription failed" });
+  }
+}
+
+
+// to be used by remote CRON ...
+export const startSubscriptionChecker = async () => {
+
+    console.log("🔍 Checking for expired subscriptions...");
+
+    const now = new Date();
+
+    const expiredUsers = await User.find({
+      subscription: "premium",
+      subscription_end_date: { $lt: now }
+    });
+
+    for (const user of expiredUsers) {
+      user.subscription = "free";
+      user.subscription_end_date = null;
+      user.subscription_start_date = null;
+      await user.save();
+
+      console.log(`👤 Downgraded: ${user.email}`);
+    }
+
+    console.log("✅ Subscription check complete.");
+
+};

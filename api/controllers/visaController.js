@@ -1,11 +1,14 @@
-const { ofetch } = require("ofetch");
+/* const { ofetch } = require("ofetch");
 const { MsEdgeTTS, OUTPUT_FORMAT } = require("msedge-tts");
-const fs = require("fs");
-const path = require("path");
 
 const User = require("../models/user");
 const { default: Interview } = require("../models/interview");
 const { default: Message } = require("../models/message");
+ */
+import { ofetch } from "ofetch";
+import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
+import Interview from "../models/interview.js";
+import Message from "../models/message.js";
 
 // Build interview prompt with improved conversational tone
 let prompt = `You are a visa officer conducting an interview. Your tone is formal, polite, and professional, mimicking a real human officer. Use natural phrasing like "Can you tell me...", "I’d like to know...", or "Please explain..." to sound conversational. 
@@ -17,7 +20,7 @@ let prompt = `You are a visa officer conducting an interview. Your tone is forma
     Here is the candidate’s data:\n\n`;
 
 
-exports.conductVisaInterview = async (req, res) => {
+export const conductVisaInterview = async (req, res) => {
   try {
     const {
       candidateData,
@@ -172,7 +175,7 @@ exports.conductVisaInterview = async (req, res) => {
 };
 
 // create new interview and return interview id..
-exports.createNewInterview = async (req, res) => {
+export const createNewInterview = async (req, res) => {
   try{
     const user_id = req?.user_info?._id;
 
@@ -218,7 +221,7 @@ const newMessage = async (
 
 }
 
-exports.userMessage = async(req, res) => {
+export const userMessage = async(req, res) => {
   try{
     const user = req.user_info;
     const { text, interviewId } = req.body;
@@ -229,7 +232,7 @@ exports.userMessage = async(req, res) => {
   }
 }
 
-exports.getInterviewById = async (req, res) => {
+export const getInterviewById = async (req, res) => {
   try {
     const interviewId = req.params.interview_id;
 
@@ -255,7 +258,7 @@ let previousAnswers = [];
 let questionCount = 0; */
 
 
-exports.conductVisaInterviewForAuthUsers = async (req, res) => {
+export const conductVisaInterviewForAuthUsers = async (req, res) => {
   try {
     const {
       currentAnswer,
@@ -480,7 +483,7 @@ exports.conductVisaInterviewForAuthUsers = async (req, res) => {
   }
 };
 
-exports.getAllMessagesInInterview = async (req, res) => {
+export const getAllMessagesInInterview = async (req, res) => {
   try {
     const interviewId = req.params.interview_id;
 
@@ -503,7 +506,7 @@ exports.getAllMessagesInInterview = async (req, res) => {
 };
 
 
-exports.deleteInterviewById = async (req, res) => {
+export const deleteInterviewById = async (req, res) => {
   try {
     const interviewId = req.params.interview_id;
 
