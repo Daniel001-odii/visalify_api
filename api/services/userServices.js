@@ -2,11 +2,12 @@ import User from '../models/user.js';
 
 export const updateSubscriptionStatus = async (email, updates) => {
   try {
+    // await User.findByIdAndUpdate({ user_id }, {
     await User.findOneAndUpdate({ email }, {
       $set: {
         subscriptionStatus: updates.status,
-        subscriptionCode: updates.subscriptionCode,
-        nextPaymentDate: updates.nextPaymentDate
+        subscription: updates.subscription
+        // subscriptionCode: updates.subscriptionCode
       }
     }, { new: true });
   } catch (err) {

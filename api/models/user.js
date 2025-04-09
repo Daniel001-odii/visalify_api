@@ -26,8 +26,6 @@ const userSchema = new mongoose.Schema(
       enum: ["active", "past_due", "cancelled", "inactive"],
       default: "inactive",
     },
-    subscriptionCode: { type: String },
-    nextPaymentDate: { type: Date },
 
     last_login: Date,
     last_login_string: String,

@@ -14,26 +14,31 @@ export const handlePaystackWebhook = async (req, res) => {
 
   const event = req.body.event;
   const data = req.body.data;
-  const email = data?.customer?.email;
+//   const user_id = req.body.data.metadata.userId;
+  const email = data?.metadata?.realEmail;
 
   console.log("data from paystack: ", req.body);
 
   switch (event) {
-    case 'invoice.payment_success':
+    case 'charge.success':
       await updateSubscriptionStatus(email, {
         status: 'active',
-        nextPaymentDate: data.next_payment_date,
-        subscriptionCode: data.subscription?.subscription_code,
+        subscription: "premium"
       });
       break;
 
     case 'invoice.payment_failed':
-      await updateSubscriptionStatus(email, { status: 'past_due' });
+      await updateSubscriptionStatus(email, { 
+        subscription: "premium",
+        status: 'past_due' 
+    });
       break;
 
     case 'subscription.disable':
     case 'subscription.not_renew':
-      await updateSubscriptionStatus(email, { status: 'cancelled' });
+      await updateSubscriptionStatus(email, { 
+        subscription: "premium",
+        status: 'cancelled' });
       break;
   }
 
