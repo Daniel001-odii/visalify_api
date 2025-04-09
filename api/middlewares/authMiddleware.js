@@ -12,7 +12,7 @@ export const authenticate = async (req, res, next) => {
 
     req.user = decoded;
     req.user_info = user_data;
-    console.log("user data from middleware: ", user_data)
+    // console.log("user data from middleware: ", user_data)
     next();
   } catch (err) {
     res.status(401).json({ message: "Invalid token" });

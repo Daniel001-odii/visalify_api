@@ -16,7 +16,7 @@ export const handlePaystackWebhook = async (req, res) => {
   const data = req.body.data;
   const email = data?.customer?.email;
 
-  console.log("data from paystack: ", data);
+  console.log("data from paystack: ", req.body);
 
   switch (event) {
     case 'invoice.payment_success':
@@ -66,3 +66,38 @@ export const verifyInitialPayment = async (req, res) => {
     return res.status(500).json({ error: 'Verification failed', details: error.message });
   }
 };
+
+export const generatePaystackPaymentLink = async (req, res) => {
+    const user = req.user_info;
+    // const userId = user._id
+    console.log("plan code: ", process.env.PAYSTACK_PLAN_CODE)
+  
+    try {
+      /* const user = await User.findById(userId);
+      if (!user) return res.status(404).json({ message: 'User not found' }); */
+  
+      const payload = {
+        email: user.email, // still required
+        amount: "100000",
+        plan: process.env.PAYSTACK_PLAN_CODE, // Your subscription plan code
+        metadata: {
+          userId: user._id.toString(),
+          realEmail: user.email
+        }
+      };
+  
+      const response = await axios.post('https://api.paystack.co/transaction/initialize', payload, {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      const paymentLink = response.data.data.authorization_url;
+      res.status(200).json({ paymentLink });
+  
+    } catch (err) {
+      console.error('Error creating payment link:', err.response?.data || err.message);
+      res.status(500).json({ message: 'Could not create payment link' });
+    }
+  };
