@@ -16,6 +16,8 @@ export const handlePaystackWebhook = async (req, res) => {
   const data = req.body.data;
   const email = data?.customer?.email;
 
+  console.log("data from paystack: ", data);
+
   switch (event) {
     case 'invoice.payment_success':
       await updateSubscriptionStatus(email, {
