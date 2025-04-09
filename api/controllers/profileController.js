@@ -4,6 +4,7 @@ import { MsEdgeTTS } from "msedge-tts";
 import Interview from "../models/interview.js";
 import message from "../models/message.js";
 
+import paystack from "../utils/paystack.js";
 // Initialize the TTS service
 const tts = new MsEdgeTTS();
 
@@ -206,6 +207,8 @@ export const subscribePremium = async (req, res) => {
       first_name: user.name.split(" ")[0],
     });
 
+    console.log("customer from paystack: ", customerRes);
+
     const customerCode = customerRes.data.data.customer_code;
 
     // Step 2: Initialize subscription (use your own Paystack plan code)
@@ -213,7 +216,7 @@ export const subscribePremium = async (req, res) => {
 
     const subRes = await paystack.post("/transaction/initialize", {
       email: user.email,
-      amount: 5000 * 100, // ₦5000 in kobo
+      amount: 10000 * 100, // ₦5000 in kobo
       plan: planCode,
       metadata: {
         userId: user._id.toString(),

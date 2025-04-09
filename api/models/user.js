@@ -12,20 +12,22 @@ const userSchema = new mongoose.Schema(
     provider: {
       type: String,
       enum: ["google", "visalify"],
-      default: "visalify"
+      default: "visalify",
     },
 
     subscription: {
       type: String,
       enum: ["free", "premium"],
-      default: "free"
+      default: "free",
     },
 
-    subscription_start_date: Date,
-    subscription_end_date: Date,
-
-    paystack_customer_code: String,
-    paystack_subscription_code: String,
+    subscriptionStatus: {
+      type: String,
+      enum: ["active", "past_due", "cancelled", "inactive"],
+      default: "inactive",
+    },
+    subscriptionCode: { type: String },
+    nextPaymentDate: { type: Date },
 
     last_login: Date,
     last_login_string: String,
@@ -40,27 +42,27 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    
+
     visa_type: {
       type: String,
       enum: [
         "Student Visa (F-1)",
         "Work Visa (H-1B)",
         "Tourist Visa (B-2)",
-        "Family Visa"
-      ]
+        "Family Visa",
+      ],
     },
 
     travelled_before: {
       type: String,
       enum: ["yes", "no"],
-      default: "no"
+      default: "no",
     },
 
     visa_refused_before: {
       type: String,
       enum: ["yes", "no"],
-      default: "no"
+      default: "no",
     },
 
     occupation: String,
@@ -71,22 +73,22 @@ const userSchema = new mongoose.Schema(
       vo_gender: {
         type: String,
         enum: ["male", "female"],
-        default: "female"
+        default: "female",
       },
       vo_voice: { type: String },
       test_level: {
         type: String,
-        enum: ["easy", "medium", "hard"]
+        enum: ["easy", "medium", "hard"],
       },
-      voice_over: { type: Boolean, default: true }
-    }
+      voice_over: { type: Boolean, default: true },
+    },
   },
   { timestamps: true }
 );
 
 // Hash password if modified
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();

@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import authRoutes from './routes/authRoutes.js';
 import visaRoutes from './routes/visaRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import paystackRoutes from './routes/paystackRoutes.js'
 
 // Initialize Express app
 const app = express();
@@ -56,10 +57,11 @@ connectToMongoDB();
 app.use('/api/auth', authRoutes); // Auth endpoints (register, login)
 app.use('/api/visa', visaRoutes); // Visa Interview API
 app.use('/api/user', userRoutes); // User Profile CRUD
+app.use('/api/paystack', paystackRoutes);
 
 // Root route
 app.get('/', async (req, res) => {
-  res.send('Your API is live!');
+  res.send('Visalify API is live!');
 });
 
 // Start Server
