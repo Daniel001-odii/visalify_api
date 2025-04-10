@@ -7,6 +7,9 @@ import config from '../config/config.js';
 import { OAuth2Client } from "google-auth-library";
 // const { OAuth2Client } = require('google-auth-library')
 
+import crypto from 'crypto';
+import sendEmail from '../utils/email.js';
+
 function getOauth2Client() {
   const oAuth2Client = new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
@@ -102,7 +105,7 @@ export const signup = async (req, res) => {
     newUser.last_login_string =formatDateHumanReadable(Date.now());
     newUser.save()
 
-    res.status(201).json({ token, message: "User registered successfully", userId: newUser._id });
+    res.status(201).json({ token, message: "User registered successfully", user: newUser });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
     console.log("err in signup: ", error)
@@ -116,10 +119,13 @@ export const login = async (req, res) => {
 
     // Check if user exists and password is correct
     // if(user && user.provider != 'google'){
-      if (!user || !(await user.matchPassword(password)) || user.provider != 'google') {
+     /*  if (!user || !(await user.matchPassword(password)) || user.provider != 'google') {
         return res.status(401).json({ message: "Invalid credentials provided" });
-      }
+      } */
     // }
+    if (!user || !(await user.matchPassword(password)) || user.provider != 'visalify') {
+      return res.status(401).json({ message: "Invalid credentials provided" });
+    }
 
     user.last_login_string =formatDateHumanReadable(Date.now());
     user.save()
@@ -129,5 +135,98 @@ export const login = async (req, res) => {
   } catch (error) {
     console.log("err in login: ", error)
     res.status(500).json({ message: "Server error", error });
+  }
+};
+
+
+export const requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+
+    const user = await User.findOne({ email, provider: "visalify" });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const token = `${Math.random().toString(36).substring(0, 10)}`;
+
+    user.reset_password_token = token;
+    user.reset_password_expires = Date.now() + 3600000; // 1 hour
+
+    await user.save();
+
+    const resetUrl = `${process.env.GOOGLE_REDIRECT_URL}/reset-password/${token}`;
+    const message = `
+      <p>Hello ${user.name},</p>
+      <p>You requested a password reset. Click the link below to reset your password:</p>
+      <a href="${resetUrl}">${resetUrl}</a>
+      <p>This link will expire in 1 hour.</p>
+    `;
+
+    await sendEmail({
+      to: user.email,
+      subject: 'Password Reset Request',
+      html: message,
+    });
+
+    res.status(200).json({ message: 'Reset link sent to email' });
+  } catch (error) {
+    console.error('Error in requestPasswordReset:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const validateResetToken = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const user = await User.findOne({
+      reset_password_token: token,
+      reset_password_expires: { $gt: Date.now() },
+    });
+
+    if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
+
+    res.status(200).json({ message: 'Token is valid' });
+  } catch (error) {
+    console.error('Error in validateResetToken:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if(!token){
+      return res.status(400).json({ message: "token is missing"})
+    }
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    const user = await User.findOne({
+      reset_password_token: token,
+      reset_password_expires: { $gt: Date.now() },
+    });
+
+    if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
+
+    user.password = password; // make sure password hashing happens in model
+    user.reset_password_token = undefined;
+    user.reset_password_expires = undefined;
+
+    await user.save();
+
+    
+    const token_ = jwt.sign({ user }, config.jwtSecret, { expiresIn: "7d" });
+    // res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+
+    res.status(200).json({ token: token_, message: 'Password reset successful. You can now log in.' });
+  } catch (error) {
+    console.error('Error in resetPassword:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };

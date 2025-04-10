@@ -21,11 +21,12 @@ const userSchema = new mongoose.Schema(
       default: "free",
     },
 
-    subscriptionStatus: {
+    subscription_status: {
       type: String,
       enum: ["active", "past_due", "cancelled", "inactive"],
       default: "inactive",
     },
+    customer_code: String,
 
     last_login: Date,
     last_login_string: String,
@@ -41,6 +42,9 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    reset_password_token: String,
+    reset_password_expires: Date,
+
     visa_type: {
       type: String,
       enum: [
@@ -49,6 +53,15 @@ const userSchema = new mongoose.Schema(
         "Tourist Visa (B-2)",
         "Family Visa",
       ],
+    },
+
+    visa_tip: {
+      tips: [
+        {
+          type: String,
+        }
+      ],
+      date: Date,
     },
 
     travelled_before: {

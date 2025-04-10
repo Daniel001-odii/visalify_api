@@ -128,10 +128,25 @@ export const generateVisaTips = async (req, res) => {
     return res.status(400).json({ message: "Visa interview data is required." });
   }
 
-  const prompt = `
+  try {
+    const user = await User.findById(userData._id);
+    const lastTipDate = user.visa_tip?.date;
+    const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+    // If tips were already generated today, return the saved tips
+    if (lastTipDate && new Date(lastTipDate).toISOString().slice(0, 10) === today) {
+      return res.status(200).json({
+        success: true,
+        tips: user.visa_tip.tips,
+        message: "Today's tips already generated.",
+      });
+    }
+
+    // Generate new tips
+    const prompt = `
 You are an expert visa interview coach.
 
-Using the following data about a visa applicant, provide exactly 2 specific, personalized, and encouraging tips that will help them perform well in their interview.
+Using the following data about a visa applicant, provide exactly 2 specific, personalized, and encouraging tips that will help them perform well in their interview, also make reference to the user's interview date sometimes.
 
 Here is the user's information:
 ${JSON.stringify(userData, null, 2)}
@@ -144,7 +159,6 @@ Return only the tips in this format:
 2. [Tip two]
 `;
 
-  try {
     const geminiResponse = await ofetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
       {
@@ -176,11 +190,18 @@ Return only the tips in this format:
       ? [
           tipsMatch[1].trim(),
           tipsMatch[2].trim(),
-      ]
+        ]
       : [
           "Be calm and confident during your interview.",
           "Clearly explain the purpose of your visit with supporting documents.",
-      ];
+        ];
+
+    // Save the new tips and today's date
+    user.visa_tip = {
+      tips,
+      date: new Date(),
+    };
+    await user.save();
 
     res.status(200).json({
       success: true,
@@ -195,6 +216,7 @@ Return only the tips in this format:
     });
   }
 };
+
 
 
 export const subscribePremium = async (req, res) => {

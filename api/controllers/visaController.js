@@ -179,6 +179,14 @@ export const createNewInterview = async (req, res) => {
   try{
     const user_id = req?.user_info?._id;
 
+    // only 1 free interviews for free users..
+    const user = req.user_info;
+    const previous_interviews = await Interview.find({ user: user_id }).countDocuments();
+    if(user.subscription == "free" && previous_interviews >= 1){
+      return res.status(403).json({ message: "Upgrade to a premium subscription to access additional interviews." });
+    }
+    
+
     const country = req.user_info?.target_country;
     const visa_type = req.user_info?.visa_type;
     const newInterview = await Interview.create({
@@ -271,6 +279,8 @@ export const conductVisaInterviewForAuthUsers = async (req, res) => {
       currentAnswer,
     } = req.body; */
     const interviewId = req.params.interview_id;
+
+    
 
     const interview = await Interview.findById(interviewId);
     if (!interview) {

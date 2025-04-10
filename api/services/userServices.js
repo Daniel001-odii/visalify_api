@@ -5,8 +5,9 @@ export const updateSubscriptionStatus = async (email, updates) => {
     // await User.findByIdAndUpdate({ user_id }, {
     await User.findOneAndUpdate({ email }, {
       $set: {
-        subscriptionStatus: updates.status,
-        subscription: updates.subscription
+        subscription_status: updates.status,
+        subscription: updates.subscription,
+        customer_code: updates.customer_code,
         // subscriptionCode: updates.subscriptionCode
       }
     }, { new: true });

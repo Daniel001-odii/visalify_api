@@ -23,14 +23,16 @@ export const handlePaystackWebhook = async (req, res) => {
     case 'charge.success':
       await updateSubscriptionStatus(email, {
         status: 'active',
-        subscription: "premium"
+        subscription: "premium",
+        customer_code: data?.customer?.customer_code,
       });
       break;
 
     case 'invoice.payment_failed':
       await updateSubscriptionStatus(email, { 
         subscription: "premium",
-        status: 'past_due' 
+        status: 'past_due',
+        customer_code: data?.customer?.customer_code, 
     });
       break;
 
@@ -38,6 +40,7 @@ export const handlePaystackWebhook = async (req, res) => {
     case 'subscription.not_renew':
       await updateSubscriptionStatus(email, { 
         subscription: "premium",
+        customer_code: data?.customer?.customer_code,
         status: 'cancelled' });
       break;
   }
